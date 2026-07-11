@@ -1,0 +1,5 @@
+# Build output
+build/
+
+# Fetched dependencies (Unity is cloned by `make test`, not committed)
+test/vendor/
