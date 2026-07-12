@@ -86,7 +86,7 @@ static ui::ScreenManager<ui::screen_id> g_screens;
 static const ui::screen_id kOrder[] = {
     ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap
 };
-static constexpr uint32_t kScreenHoldMs = 3000u;
+static constexpr uint32_t kScreenHoldMs = 10000u;
 
 static uint32_t g_last_ms = 0u;
 static uint32_t g_screen_ms = 0u;
