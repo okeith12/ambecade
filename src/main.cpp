@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <WiFi.h>
 
 #include "framebuffer_canvas.hpp"
 #include "screen.hpp"
@@ -18,11 +19,19 @@
 #include "frog_face.hpp"
 #include "buttons.hpp"
 #include "galaga_screen.hpp"
+#include "firefly_catch_screen.hpp"
+#include "clock_screen.hpp"
 
 extern "C" {
 #include "st7789.h"
 #include "spi_bus.h"
 }
+
+// ---- WiFi + time (for the clock). Fill in your 2.4GHz network to enable it. ----
+static const char* kWifiSsid = "";   // your WiFi name (leave empty to skip WiFi)
+static const char* kWifiPass = "";   // your WiFi password
+// America/Chicago with automatic daylight saving.
+static const char* kTimezone = "CST6CDT,M3.2.0,M11.1.0";
 
 // ---- Display wiring: matches the XIAO ESP32-S3 silk labels (BLK tied to 3V3) ----
 static constexpr int8_t kPinSck = D8;    // CK
@@ -91,12 +100,38 @@ static ui::ShapesScreen g_shapes;
 static ui::ProceduralFace g_face;
 static ui::BitmapFace g_frog(gfx::frog_face);
 static ui::GalagaScreen g_game(g_buttons, 240, 240);
+static ui::FireflyCatchScreen g_firefly(g_buttons, 240, 240, 0xBEEF1234u);
+static ui::ClockScreen g_clock;
 static ui::ScreenManager<ui::screen_id> g_screens;
 
-// The order screens cycle in, and how long each auto-advances (the game does not).
+// The order screens cycle in; games hold their screen instead of auto-advancing.
 static const ui::screen_id kOrder[] = {
-    ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap, ui::screen_id::game
+    ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap,
+    ui::screen_id::game, ui::screen_id::firefly, ui::screen_id::clock
 };
+
+// True for screens that should not auto-advance (the two games).
+static bool holds_screen(ui::screen_id id)
+{
+    return id == ui::screen_id::game || id == ui::screen_id::firefly;
+}
+
+// Connects WiFi (if configured) and starts NTP time for the clock.
+static void start_wifi_and_time()
+{
+    if (kWifiSsid[0] == '\0') {
+        return;   // no credentials: the clock shows a placeholder
+    }
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(kWifiSsid, kWifiPass);
+    const uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 8000u) {
+        delay(200);
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        configTzTime(kTimezone, "pool.ntp.org", "time.nist.gov");
+    }
+}
 static constexpr uint32_t kScreenHoldMs = 10000u;
 
 static uint32_t g_last_ms = 0u;
@@ -144,10 +179,14 @@ void setup()
     // offset, which is our ROTATION_0 -- reproduces the proven GRAM mapping.
     st7789_set_rotation(&g_drv, ST7789_ROTATION_0);
 
+    start_wifi_and_time();
+
     g_screens.set_screen(ui::screen_id::shapes, &g_shapes);
     g_screens.set_screen(ui::screen_id::face, &g_face);
     g_screens.set_screen(ui::screen_id::bitmap, &g_frog);
     g_screens.set_screen(ui::screen_id::game, &g_game);
+    g_screens.set_screen(ui::screen_id::firefly, &g_firefly);
+    g_screens.set_screen(ui::screen_id::clock, &g_clock);
     g_screens.set_active(kOrder[g_screen_index]);
 
     g_last_ms = millis();
@@ -171,7 +210,7 @@ void loop()
         next_screen();
         return;
     }
-    if (kOrder[g_screen_index] != ui::screen_id::game) {
+    if (!holds_screen(kOrder[g_screen_index])) {
         g_screen_ms += dt;
         if (g_screen_ms >= kScreenHoldMs) {
             next_screen();

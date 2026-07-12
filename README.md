@@ -28,14 +28,18 @@ seam     ── spi_bus ops table ──► real SPI  |  mock (tests)
 
 ### Screens
 
-The device cycles **shapes → face → frog → Galaga**. A **Select** button switches screens; the
-game holds its screen so it is not interrupted mid-play.
+The device cycles **shapes → face → frog → Galaga → Firefly Catch → clock**. A **Select** button
+switches screens; the games hold their screen so they are not interrupted mid-play.
 
 - **Shapes** — a sliding square over a cycling background.
 - **Face** — a procedural face that blinks (open a few seconds, brief shut).
 - **Frog** — a self-describing pixel-art bitmap, scaled to fill the screen.
 - **Galaga** — move **left/right**, **fire** up at a marching formation; score and game-over drawn
   with the bitmap font. Pure game logic, unit-tested; **fire** restarts after a win or loss.
+- **Firefly Catch** — slide the jar to catch fireflies falling from random spots; miss and lose a
+  life. Seeded RNG, unit-tested; **fire** restarts.
+- **Clock** — a big HH:MM and date, set over WiFi/NTP. Fill in `kWifiSsid` / `kWifiPass` in
+  `src/main.cpp`; without credentials it shows a placeholder.
 
 ### Test 
 

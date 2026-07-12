@@ -11,6 +11,8 @@ enum class screen_id : std::size_t {
     face,        // procedural animated face
     bitmap,      // the frog bitmap
     game,        // Galaga
+    firefly,     // Firefly Catch
+    clock,       // WiFi/NTP day clock
     count        // sentinel: number of screens (keep last)
 };
 

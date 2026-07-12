@@ -8,6 +8,8 @@
 #include "shapes_screen.hpp"
 #include "buttons.hpp"
 #include "galaga.hpp"
+#include "firefly_catch.hpp"
+#include "clock_format.hpp"
 
 using namespace ui;
 
@@ -237,6 +239,63 @@ static void test_galaga_frozen_after_game_ends(void)
     TEST_ASSERT_EQUAL_INT(frozen_score, g.score());
 }
 
+static void test_firefly_reset_starts_ready(void)
+{
+    game::FireflyCatch g(240, 240, 1u);
+    TEST_ASSERT_EQUAL_INT(0, g.score());
+    TEST_ASSERT_EQUAL_INT(game::FireflyCatch::kStartLives, g.lives());
+    TEST_ASSERT_EQUAL_INT((int)game::CatchState::playing, (int)g.state());
+    TEST_ASSERT_TRUE(g.flies()[0].active);   // opening firefly present
+}
+
+static void test_firefly_same_seed_is_deterministic(void)
+{
+    game::FireflyCatch a(240, 240, 12345u);
+    game::FireflyCatch b(240, 240, 12345u);
+    for (int i = 0; i < 300; ++i) {
+        a.step(16u, 0u);
+        b.step(16u, 0u);
+    }
+    TEST_ASSERT_EQUAL_INT(a.score(), b.score());
+    TEST_ASSERT_EQUAL_INT(a.lives(), b.lives());
+}
+
+static void test_firefly_centered_opener_is_caught(void)
+{
+    // The first firefly is centered and the jar starts centered, so with no input
+    // it should be caught before any later firefly reaches the bottom.
+    game::FireflyCatch g(240, 240, 7u);
+    for (int i = 0; i < 80; ++i) {
+        g.step(16u, 0u);
+    }
+    TEST_ASSERT_TRUE(g.score() >= 10);
+    TEST_ASSERT_EQUAL_INT(game::FireflyCatch::kStartLives, g.lives());
+}
+
+static void test_firefly_missing_costs_lives_and_ends(void)
+{
+    // Pin the jar to the left edge so centered/right fireflies are missed.
+    game::FireflyCatch g(240, 240, 3u);
+    for (int i = 0; i < 2000 && g.state() == game::CatchState::playing; ++i) {
+        g.step(16u, ui::BUTTON_LEFT);
+    }
+    TEST_ASSERT_EQUAL_INT((int)game::CatchState::over, (int)g.state());
+    TEST_ASSERT_EQUAL_INT(0, g.lives());
+}
+
+static void test_clock_format_pads_and_names(void)
+{
+    char buf[24];
+    ui::clock_format::hhmm(9, 5, buf, sizeof(buf));
+    TEST_ASSERT_EQUAL_STRING("09:05", buf);
+    ui::clock_format::hhmm(23, 59, buf, sizeof(buf));
+    TEST_ASSERT_EQUAL_STRING("23:59", buf);
+    TEST_ASSERT_EQUAL_STRING("MON", ui::clock_format::weekday(1));
+    TEST_ASSERT_EQUAL_STRING("JUL", ui::clock_format::month(6));
+    ui::clock_format::date_str(1, 6, 12, buf, sizeof(buf));
+    TEST_ASSERT_EQUAL_STRING("MON JUL 12", buf);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -256,5 +315,10 @@ int main(void)
     RUN_TEST(test_galaga_shots_destroy_enemies_and_score);
     RUN_TEST(test_galaga_formation_reaching_bottom_loses);
     RUN_TEST(test_galaga_frozen_after_game_ends);
+    RUN_TEST(test_firefly_reset_starts_ready);
+    RUN_TEST(test_firefly_same_seed_is_deterministic);
+    RUN_TEST(test_firefly_centered_opener_is_caught);
+    RUN_TEST(test_firefly_missing_costs_lives_and_ends);
+    RUN_TEST(test_clock_format_pads_and_names);
     return UNITY_END();
 }
