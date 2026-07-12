@@ -1,7 +1,6 @@
 #ifndef GFX_FROG_FACE_HPP
 #define GFX_FROG_FACE_HPP
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include "color.hpp"
@@ -48,24 +47,29 @@ constexpr const char* kArt[kHeight] = {
     "...GGGGGG...",
 };
 
+// Holds the expanded pixels so a constexpr builder can fill a plain array.
+struct Pixels {
+    color_t data[static_cast<std::size_t>(kWidth) * kHeight];
+};
+
 // Expands the art into an RGB565 pixel buffer at compile time (no heap, no I/O).
-constexpr std::array<color_t, static_cast<std::size_t>(kWidth) * kHeight> make_pixels()
+constexpr Pixels make_pixels()
 {
-    std::array<color_t, static_cast<std::size_t>(kWidth) * kHeight> px{};
+    Pixels px{};
     for (std::int16_t y = 0; y < kHeight; ++y) {
         for (std::int16_t x = 0; x < kWidth; ++x) {
-            px[static_cast<std::size_t>(y) * kWidth + x] = palette(kArt[y][x]);
+            px.data[static_cast<std::size_t>(y) * kWidth + x] = palette(kArt[y][x]);
         }
     }
     return px;
 }
 
-constexpr auto kPixels = make_pixels();
+constexpr Pixels kPixels = make_pixels();
 
 }  // namespace frog
 
 // The frog face: a self-describing, named asset carrying its own pixels and size.
-constexpr Bitmap frog_face{ frog::kPixels.data(), frog::kWidth, frog::kHeight };
+constexpr Bitmap frog_face{ frog::kPixels.data, frog::kWidth, frog::kHeight };
 
 }  // namespace gfx
 
