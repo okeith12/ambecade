@@ -3,3 +3,9 @@
 
 # IDE
 .vscode/
+
+# Local AI context — never commit
+HANDOFF.md
+
+# macOS
+.DS_Store

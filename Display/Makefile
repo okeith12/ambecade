@@ -1,4 +1,4 @@
-# Host unit tests: `make test` builds and runs both suites (fetches Unity once).
+# Host unit tests: `make test` builds and runs every suite (fetches Unity once).
 
 CC        := cc
 CXX       := c++
@@ -7,11 +7,11 @@ UNITY_SRC := $(UNITY_DIR)/src
 
 CFLAGS    := -std=c11 -Wall -Wextra -g -O0
 CXXFLAGS  := -std=c++17 -Wall -Wextra -g -O0
-INCLUDES  := -Ist7789 -Igfx -Itest -I$(UNITY_SRC)
+INCLUDES  := -Ist7789 -Igfx -Iscreen -Istorage -Itest -I$(UNITY_SRC)
 
 BUILD_DIR := build
 
-
+# C objects shared by the C test binaries (driver + mock + Unity).
 COMMON_OBJS := \
 	$(BUILD_DIR)/st7789.o \
 	$(BUILD_DIR)/spi_bus.o \
@@ -20,6 +20,8 @@ COMMON_OBJS := \
 
 DRIVER_BIN := $(BUILD_DIR)/test_st7789
 CANVAS_BIN := $(BUILD_DIR)/test_canvas
+SCREEN_BIN := $(BUILD_DIR)/test_screen
+BITMAP_BIN := $(BUILD_DIR)/test_bitmap
 
 .PHONY: test compile clean
 
@@ -28,15 +30,28 @@ test: compile
 	@./$(DRIVER_BIN)
 	@echo "=== canvas suite ==="
 	@./$(CANVAS_BIN)
+	@echo "=== screen suite ==="
+	@./$(SCREEN_BIN)
+	@echo "=== bitmap suite ==="
+	@./$(BITMAP_BIN)
 
-compile: $(DRIVER_BIN) $(CANVAS_BIN)
+compile: $(DRIVER_BIN) $(CANVAS_BIN) $(SCREEN_BIN) $(BITMAP_BIN)
 
-
+# Driver suite is pure C.
 $(DRIVER_BIN): $(COMMON_OBJS) $(BUILD_DIR)/test_st7789.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Canvas suite links the C objects with the C++ test; use the C++ driver to link.
+# Canvas suite links the C objects with the C++ test; link with the C++ driver.
 $(CANVAS_BIN): $(COMMON_OBJS) $(BUILD_DIR)/test_canvas.o
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+# Screen suite is pure C++ (plus Unity); no driver/mock needed.
+$(SCREEN_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/procedural_face.o $(BUILD_DIR)/test_screen.o
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+# Bitmap suite: C storage seam + mock, C++ loader/face/test.
+$(BITMAP_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/mock_storage.o \
+               $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/bitmap_face.o $(BUILD_DIR)/test_bitmap.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD_DIR)/st7789.o: st7789/st7789.c | $(UNITY_SRC)/unity.c $(BUILD_DIR)
@@ -50,6 +65,20 @@ $(BUILD_DIR)/unity.o: $(UNITY_SRC)/unity.c | $(BUILD_DIR)
 $(BUILD_DIR)/test_st7789.o: test/test_st7789.c | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 $(BUILD_DIR)/test_canvas.o: test/test_canvas.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/procedural_face.o: screen/procedural_face.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/test_screen.o: test/test_screen.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/storage.o: storage/storage.c | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/mock_storage.o: test/mock_storage.c | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/bitmap.o: gfx/bitmap.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/bitmap_face.o: screen/bitmap_face.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/test_bitmap.o: test/test_bitmap.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 $(BUILD_DIR):
