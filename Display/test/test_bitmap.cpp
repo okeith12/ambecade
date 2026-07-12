@@ -119,22 +119,37 @@ static void test_load_propagates_not_found_and_io(void)
         load_bitmap(r, "frog_face.rgb565", 2, 2, buf, 4, bmp));
 }
 
-static void test_bitmap_face_blits_centered(void)
+static void test_bitmap_face_scales_and_centers(void)
 {
     const color_t px[4] = { color::red, color::green, color::blue, color::white };
     Bitmap bmp = { px, 2, 2 };
     ui::BitmapFace face(bmp);
 
     FramebufferCanvas<4, 4> fb;
-    fb.clear(color::black);
     face.render(fb);
 
-    // 2x2 centered in 4x4 -> top-left at (1,1).
+    // 2x2 scaled 2x fills the 4x4 canvas: each source pixel becomes a 2x2 block.
+    TEST_ASSERT_EQUAL_HEX16(color::red,   fb.pixel_at(0, 0));
     TEST_ASSERT_EQUAL_HEX16(color::red,   fb.pixel_at(1, 1));
-    TEST_ASSERT_EQUAL_HEX16(color::green, fb.pixel_at(2, 1));
-    TEST_ASSERT_EQUAL_HEX16(color::blue,  fb.pixel_at(1, 2));
-    TEST_ASSERT_EQUAL_HEX16(color::white, fb.pixel_at(2, 2));
-    TEST_ASSERT_EQUAL_HEX16(color::black, fb.pixel_at(0, 0));  // untouched
+    TEST_ASSERT_EQUAL_HEX16(color::green, fb.pixel_at(3, 0));
+    TEST_ASSERT_EQUAL_HEX16(color::blue,  fb.pixel_at(0, 3));
+    TEST_ASSERT_EQUAL_HEX16(color::white, fb.pixel_at(3, 3));
+}
+
+static void test_bitmap_face_clears_background(void)
+{
+    // A 2x2 bitmap on a 5x5 canvas scales 2x (4x4) and leaves a 1px margin that
+    // must show the background, proving the screen clears before it draws.
+    const color_t px[4] = { color::red, color::red, color::red, color::red };
+    Bitmap bmp = { px, 2, 2 };
+    ui::BitmapFace face(bmp, color::blue);
+
+    FramebufferCanvas<5, 5> fb;
+    fb.clear(color::white);   // stale content from a previous screen
+    face.render(fb);
+
+    TEST_ASSERT_EQUAL_HEX16(color::blue, fb.pixel_at(4, 4));  // margin is background
+    TEST_ASSERT_EQUAL_HEX16(color::red,  fb.pixel_at(0, 0));  // bitmap drawn on top
 }
 
 static void test_frog_face_is_named_and_well_formed(void)
@@ -170,7 +185,8 @@ int main(void)
     RUN_TEST(test_load_buffer_too_small);
     RUN_TEST(test_load_rejects_null_and_bad_dims);
     RUN_TEST(test_load_propagates_not_found_and_io);
-    RUN_TEST(test_bitmap_face_blits_centered);
+    RUN_TEST(test_bitmap_face_scales_and_centers);
+    RUN_TEST(test_bitmap_face_clears_background);
     RUN_TEST(test_frog_face_is_named_and_well_formed);
     RUN_TEST(test_frog_face_renders_through_bitmap_face);
     return UNITY_END();
