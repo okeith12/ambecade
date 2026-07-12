@@ -2,17 +2,66 @@
 
 [![CI](https://github.com/okeith12/ambecade/actions/workflows/ci.yml/badge.svg)](https://github.com/okeith12/ambecade/actions/workflows/ci.yml)
 
-Custom Arcade
+A custom arcade device: a Seeed **XIAO ESP32-S3** driving a 1.54" **ST7789** 240x240 display.
 
-## Display driver
+## Display
 
-`Display/` holds the ST7789 display driver and graphics layer, tested entirely on
-the host (no hardware) via a mock SPI bus.
+`Display/` is a hand-written ST7789 driver and a small graphics-and-screens stack. It is built
+in layers with a hardware seam, so every layer is unit-tested on a laptop before it touches a board.
+
+```
+screens  ── face · frog · shapes · Galaga ── input · font · ScreenManager
+gfx      ── Canvas · FramebufferCanvas · color · bitmap
+driver   ── ST7789 commands · address window · pixels
+seam     ── spi_bus ops table ──► real SPI  |  mock (tests)
+```
+
+The driver knows nothing about graphics; the canvas knows nothing about the driver (only
+`flush()` crosses down). The hardware seam is a table of function pointers: on the board it points
+at Arduino SPI/GPIO, in tests at a mock that records every byte, so the whole stack runs on a host.
+
+| Path | What |
+| --- | --- |
+| `Display/st7789/` | C driver: SPI-bus seam, command opcodes, init, address window, pixels, rotation |
+| `Display/gfx/` | C++ canvas: RGB565 color, `Canvas`, `FramebufferCanvas` (integer-scaling `flush`), `bitmap`, 5x7 `font` |
+| `Display/screen/` | `Screen` + `ScreenManager`, the animated face, frog bitmap, shapes, and Galaga |
+| `Display/input/` | debounced `Buttons` |
+| `Display/test/` | Unity host tests for every layer |
+| `src/main.cpp` | firmware: wires the seam to Arduino SPI and runs the screens |
+
+### Screens
+
+The device cycles **shapes → face → frog → Galaga**. A **Select** button switches screens; the
+game holds its screen so it is not interrupted mid-play.
+
+- **Shapes** — a sliding square over a cycling background.
+- **Face** — a procedural face that blinks (open a few seconds, brief shut).
+- **Frog** — a self-describing pixel-art bitmap, scaled to fill the screen.
+- **Galaga** — move **left/right**, **fire** up at a marching formation; score and game-over drawn
+  with the bitmap font. Pure game logic, unit-tested; **fire** restarts after a win or loss.
+
+### Test (no hardware)
 
 ```
 make -C Display test
 ```
 
-- `Display/st7789/` — C driver (SPI bus seam, command opcodes, init/window/pixels)
-- `Display/gfx/` — C++ canvas layer (RGB565 color, `Canvas` interface, `FramebufferCanvas`)
-- `Display/test/` — Unity host tests for both layers
+### Flash
+
+```
+pio run -e seeed_xiao_esp32s3 -t upload
+```
+
+### Wiring (XIAO ESP32-S3)
+
+| Display | Pin | | Button (to GND) | Pin |
+| --- | --- | --- | --- | --- |
+| SCK | D8 | | Select (change screen) | D0 |
+| SDA / MOSI | D10 | | Left | D1 |
+| CS | D7 | | Right | D2 |
+| DC | D5 | | Fire / retry | D3 |
+| RST | D6 | | | |
+| BLK | 3V3 | | | |
+
+Buttons use `INPUT_PULLUP` (unwired pins read as unpressed), so one Select switch is enough to
+cycle screens; add Left/Right/Fire to play Galaga.

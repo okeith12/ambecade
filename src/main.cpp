@@ -16,18 +16,27 @@
 #include "procedural_face.hpp"
 #include "bitmap_face.hpp"
 #include "frog_face.hpp"
+#include "buttons.hpp"
+#include "galaga_screen.hpp"
 
 extern "C" {
 #include "st7789.h"
 #include "spi_bus.h"
 }
 
-// ---- Wiring: matches the XIAO ESP32-S3 silk labels (BLK tied to 3V3) ----
+// ---- Display wiring: matches the XIAO ESP32-S3 silk labels (BLK tied to 3V3) ----
 static constexpr int8_t kPinSck = D8;    // CK
 static constexpr int8_t kPinMosi = D10;  // SI
 static constexpr uint8_t kPinCs = D7;    // CS
 static constexpr uint8_t kPinDc = D5;    // DC
 static constexpr uint8_t kPinRst = D6;   // RT
+
+// ---- Button wiring: switch to GND, INPUT_PULLUP (pressed reads LOW) ----
+// Wire whatever switches you have; unwired pins float high and read as unpressed.
+static constexpr uint8_t kPinSelect = D0;  // change screen
+static constexpr uint8_t kPinLeft = D1;    // Galaga: move left
+static constexpr uint8_t kPinRight = D2;   // Galaga: move right
+static constexpr uint8_t kPinFire = D3;    // Galaga: fire / retry
 
 static constexpr uint32_t kSpiHz = 40000000u;  // 40 MHz SPI clock
 
@@ -77,14 +86,16 @@ static st7789_driver_t g_drv;
 
 // ---- App state: framebuffer and screens live in static storage, never the stack ----
 static gfx::FramebufferCanvas<240, 240> g_canvas;
+static ui::Buttons g_buttons;
 static ui::ShapesScreen g_shapes;
 static ui::ProceduralFace g_face;
 static ui::BitmapFace g_frog(gfx::frog_face);
+static ui::GalagaScreen g_game(g_buttons, 240, 240);
 static ui::ScreenManager<ui::screen_id> g_screens;
 
-// The order screens are shown, and how long each stays up.
+// The order screens cycle in, and how long each auto-advances (the game does not).
 static const ui::screen_id kOrder[] = {
-    ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap
+    ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap, ui::screen_id::game
 };
 static constexpr uint32_t kScreenHoldMs = 10000u;
 
@@ -92,12 +103,36 @@ static uint32_t g_last_ms = 0u;
 static uint32_t g_screen_ms = 0u;
 static size_t g_screen_index = 0u;
 
+// Advances to the next screen and resets the auto-advance timer.
+static void next_screen()
+{
+    g_screen_ms = 0u;
+    g_screen_index = (g_screen_index + 1u) % (sizeof(kOrder) / sizeof(kOrder[0]));
+    g_screens.set_active(kOrder[g_screen_index]);
+}
+
+// Reads the buttons into a debounced state; call once per frame.
+static void poll_buttons(uint32_t dt)
+{
+    uint32_t raw = 0u;
+    if (digitalRead(kPinSelect) == LOW) { raw |= ui::BUTTON_SELECT; }
+    if (digitalRead(kPinLeft) == LOW)   { raw |= ui::BUTTON_LEFT; }
+    if (digitalRead(kPinRight) == LOW)  { raw |= ui::BUTTON_RIGHT; }
+    if (digitalRead(kPinFire) == LOW)   { raw |= ui::BUTTON_FIRE; }
+    g_buttons.poll(dt, raw);
+}
+
 void setup()
 {
     pinMode(kPinCs, OUTPUT);
     pinMode(kPinDc, OUTPUT);
     pinMode(kPinRst, OUTPUT);
     digitalWrite(kPinCs, HIGH);
+
+    pinMode(kPinSelect, INPUT_PULLUP);
+    pinMode(kPinLeft, INPUT_PULLUP);
+    pinMode(kPinRight, INPUT_PULLUP);
+    pinMode(kPinFire, INPUT_PULLUP);
 
     SPI.begin(kPinSck, -1, kPinMosi, -1);
     // This panel clocks in SPI mode 3 (matches the proven Adafruit bring-up).
@@ -112,6 +147,7 @@ void setup()
     g_screens.set_screen(ui::screen_id::shapes, &g_shapes);
     g_screens.set_screen(ui::screen_id::face, &g_face);
     g_screens.set_screen(ui::screen_id::bitmap, &g_frog);
+    g_screens.set_screen(ui::screen_id::game, &g_game);
     g_screens.set_active(kOrder[g_screen_index]);
 
     g_last_ms = millis();
@@ -123,15 +159,22 @@ void loop()
     const uint32_t dt = now - g_last_ms;
     g_last_ms = now;
 
+    poll_buttons(dt);
+
     g_screens.update(dt);
     g_screens.render(g_canvas);
     g_canvas.flush(&g_drv);
 
-    // Advance to the next screen on a timer (input-driven switching comes later).
-    g_screen_ms += dt;
-    if (g_screen_ms >= kScreenHoldMs) {
-        g_screen_ms = 0u;
-        g_screen_index = (g_screen_index + 1u) % (sizeof(kOrder) / sizeof(kOrder[0]));
-        g_screens.set_active(kOrder[g_screen_index]);
+    // Select advances immediately; otherwise each screen auto-advances on a timer,
+    // except the game, which stays put so it is not yanked away mid-play.
+    if (g_buttons.was_pressed(ui::BUTTON_SELECT)) {
+        next_screen();
+        return;
+    }
+    if (kOrder[g_screen_index] != ui::screen_id::game) {
+        g_screen_ms += dt;
+        if (g_screen_ms >= kScreenHoldMs) {
+            next_screen();
+        }
     }
 }

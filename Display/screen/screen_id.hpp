@@ -10,6 +10,7 @@ enum class screen_id : std::size_t {
     shapes = 0,  // changing colors and shapes
     face,        // procedural animated face
     bitmap,      // the frog bitmap
+    game,        // Galaga
     count        // sentinel: number of screens (keep last)
 };
 

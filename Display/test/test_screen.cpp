@@ -6,6 +6,8 @@
 #include "screen_manager.hpp"
 #include "procedural_face.hpp"
 #include "shapes_screen.hpp"
+#include "buttons.hpp"
+#include "galaga.hpp"
 
 using namespace ui;
 
@@ -148,6 +150,93 @@ static void test_shapes_screen_cycles_background(void)
     TEST_ASSERT_TRUE(first != second);
 }
 
+static void test_buttons_debounce_press_release(void)
+{
+    Buttons b;
+
+    // A single glitchy sample never settles.
+    b.poll(5u, BUTTON_FIRE);
+    b.poll(5u, BUTTON_NONE);
+    TEST_ASSERT_EQUAL_UINT32(0u, b.held());
+
+    // Held steadily past the debounce window: settles and fires one edge.
+    b.poll(10u, BUTTON_LEFT);   // new level seen, settle timer starts
+    b.poll(10u, BUTTON_LEFT);   // +10ms
+    b.poll(10u, BUTTON_LEFT);   // +10ms = 20ms window reached
+    TEST_ASSERT_TRUE(b.is_held(BUTTON_LEFT));
+    TEST_ASSERT_TRUE(b.was_pressed(BUTTON_LEFT));
+
+    // No repeated edge while it stays held.
+    b.poll(50u, BUTTON_LEFT);
+    TEST_ASSERT_TRUE(b.is_held(BUTTON_LEFT));
+    TEST_ASSERT_FALSE(b.was_pressed(BUTTON_LEFT));
+
+    // Released steadily: clears after the window.
+    b.poll(10u, BUTTON_NONE);
+    b.poll(10u, BUTTON_NONE);
+    b.poll(10u, BUTTON_NONE);
+    TEST_ASSERT_FALSE(b.is_held(BUTTON_LEFT));
+}
+
+static void test_galaga_reset_starts_full_wave(void)
+{
+    game::Galaga g(240, 240);
+    TEST_ASSERT_EQUAL_INT(game::Galaga::kMaxEnemies, g.alive_count());
+    TEST_ASSERT_EQUAL_INT(0, g.score());
+    TEST_ASSERT_EQUAL_INT((int)game::GalagaState::playing, (int)g.state());
+}
+
+static void test_galaga_overlaps_math(void)
+{
+    TEST_ASSERT_TRUE(game::Galaga::overlaps(0, 0, 4, 4, 2, 2, 4, 4));
+    TEST_ASSERT_FALSE(game::Galaga::overlaps(0, 0, 4, 4, 10, 10, 4, 4));
+    TEST_ASSERT_FALSE(game::Galaga::overlaps(0, 0, 4, 4, 4, 0, 4, 4));  // touching edge, no overlap
+}
+
+static void test_galaga_fire_spawns_one_bullet(void)
+{
+    game::Galaga g(240, 240);
+    g.step(1u, 0u, true);   // fire edge
+
+    int active = 0;
+    const game::Bullet* b = g.bullets();
+    for (int i = 0; i < game::Galaga::kMaxBullets; ++i) {
+        if (b[i].active) { ++active; }
+    }
+    TEST_ASSERT_EQUAL_INT(1, active);
+}
+
+static void test_galaga_shots_destroy_enemies_and_score(void)
+{
+    game::Galaga g(240, 240);
+    const int before = g.alive_count();
+    for (int i = 0; i < 200 && g.state() == game::GalagaState::playing; ++i) {
+        g.step(16u, 0u, (i % 8 == 0));   // fire every 8 ticks into the formation
+    }
+    TEST_ASSERT_TRUE(g.alive_count() < before);
+    TEST_ASSERT_TRUE(g.score() > 0);
+}
+
+static void test_galaga_formation_reaching_bottom_loses(void)
+{
+    game::Galaga g(240, 240);
+    for (int i = 0; i < 1000 && g.state() == game::GalagaState::playing; ++i) {
+        g.step(16u, 0u, false);   // never shoot: the formation must reach the player
+    }
+    TEST_ASSERT_EQUAL_INT((int)game::GalagaState::lost, (int)g.state());
+}
+
+static void test_galaga_frozen_after_game_ends(void)
+{
+    game::Galaga g(240, 240);
+    while (g.state() == game::GalagaState::playing) {
+        g.step(16u, 0u, false);
+    }
+    const int frozen_score = g.score();
+    g.step(16u, 0u, true);   // input after the game ended does nothing
+    TEST_ASSERT_EQUAL_INT(frozen_score, g.score());
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -160,5 +249,12 @@ int main(void)
     RUN_TEST(test_face_renders_eyes_open);
     RUN_TEST(test_face_blinks_briefly_then_reopens);
     RUN_TEST(test_shapes_screen_cycles_background);
+    RUN_TEST(test_buttons_debounce_press_release);
+    RUN_TEST(test_galaga_reset_starts_full_wave);
+    RUN_TEST(test_galaga_overlaps_math);
+    RUN_TEST(test_galaga_fire_spawns_one_bullet);
+    RUN_TEST(test_galaga_shots_destroy_enemies_and_score);
+    RUN_TEST(test_galaga_formation_reaching_bottom_loses);
+    RUN_TEST(test_galaga_frozen_after_game_ends);
     return UNITY_END();
 }

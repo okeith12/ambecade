@@ -5,6 +5,7 @@
 #include "bitmap.hpp"
 #include "bitmap_face.hpp"
 #include "frog_face.hpp"
+#include "font.hpp"
 
 extern "C" {
 #include "storage.h"
@@ -176,6 +177,26 @@ static void test_frog_face_renders_through_bitmap_face(void)
     TEST_ASSERT_EQUAL_HEX16(frog::kGreen, fb.pixel_at(5, 5));
 }
 
+static void test_font_draws_glyph_pixels(void)
+{
+    FramebufferCanvas<16, 8> fb;
+    fb.clear(color::black);
+    gfx::draw_char(fb, 'I', 0, 0, 1, color::white);
+
+    // The top row of 'I' is " ### ": columns 1..3 lit, column 0 dark.
+    TEST_ASSERT_EQUAL_HEX16(color::black, fb.pixel_at(0, 0));
+    TEST_ASSERT_EQUAL_HEX16(color::white, fb.pixel_at(1, 0));
+    TEST_ASSERT_EQUAL_HEX16(color::white, fb.pixel_at(3, 0));
+}
+
+static void test_font_text_advances_per_glyph(void)
+{
+    FramebufferCanvas<32, 8> fb;
+    fb.clear(color::black);
+    const std::int16_t end = gfx::draw_text(fb, "HI", 0, 0, 1, color::white);
+    TEST_ASSERT_EQUAL_INT16((5 + 1) * 2, end);   // two glyphs, advance 6 each
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -189,5 +210,7 @@ int main(void)
     RUN_TEST(test_bitmap_face_clears_background);
     RUN_TEST(test_frog_face_is_named_and_well_formed);
     RUN_TEST(test_frog_face_renders_through_bitmap_face);
+    RUN_TEST(test_font_draws_glyph_pixels);
+    RUN_TEST(test_font_text_advances_per_glyph);
     return UNITY_END();
 }
