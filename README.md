@@ -16,9 +16,6 @@ driver   ── ST7789 commands · address window · pixels
 seam     ── spi_bus ops table ──► real SPI  |  mock (tests)
 ```
 
-The driver knows nothing about graphics; the canvas knows nothing about the driver (only
-`flush()` crosses down). The hardware seam is a table of function pointers: on the board it points
-at Arduino SPI/GPIO, in tests at a mock that records every byte, so the whole stack runs on a host.
 
 | Path | What |
 | --- | --- |
@@ -40,7 +37,7 @@ game holds its screen so it is not interrupted mid-play.
 - **Galaga** — move **left/right**, **fire** up at a marching formation; score and game-over drawn
   with the bitmap font. Pure game logic, unit-tested; **fire** restarts after a win or loss.
 
-### Test (no hardware)
+### Test 
 
 ```
 make -C Display test
@@ -63,5 +60,5 @@ pio run -e seeed_xiao_esp32s3 -t upload
 | RST | D6 | | | |
 | BLK | 3V3 | | | |
 
-Buttons use `INPUT_PULLUP` (unwired pins read as unpressed), so one Select switch is enough to
-cycle screens; add Left/Right/Fire to play Galaga.
+Buttons use `INPUT_PULLUP`, so one Select switch is enough to
+cycle the screens; add Left/Right/Fire to play Galaga.
