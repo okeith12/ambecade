@@ -74,28 +74,69 @@ public:
     // Raw read-only access to the backing buffer (row-major, W*H pixels).
     const color_t* data() const { return buffer_; }
 
-    /* Pushes the whole buffer to the panel. Requires the driver's physical
-       dimensions to equal W and H (1:1; integer scaling is a later slice).
-       Returns the driver status. */
+    /* Pushes the buffer to the panel, scaling up by an integer factor when the
+       panel is larger than the logical canvas (e.g. a 120x120 canvas fills a
+       240x240 panel at 2x). The panel must be an exact, uniform integer multiple
+       of W x H or this returns ST7789_ERR_PARAM. Returns the driver status. */
     st7789_status_t flush(st7789_driver_t* driver) const
     {
         if (driver == nullptr) {
             return ST7789_ERR_NULL;
         }
-        if (st7789_width(driver) != static_cast<std::uint16_t>(W) ||
-            st7789_height(driver) != static_cast<std::uint16_t>(H)) {
+        const std::uint16_t pw = st7789_width(driver);
+        const std::uint16_t ph = st7789_height(driver);
+        const std::uint16_t lw = static_cast<std::uint16_t>(W);
+        const std::uint16_t lh = static_cast<std::uint16_t>(H);
+        if (pw == 0u || ph == 0u || pw % lw != 0u || ph % lh != 0u) {
             return ST7789_ERR_PARAM;
         }
-        st7789_status_t st = st7789_set_addr_window(
-            driver, 0u, 0u,
-            static_cast<std::uint16_t>(W), static_cast<std::uint16_t>(H));
-        if (st != ST7789_OK) {
-            return st;
+        const std::uint16_t scale = static_cast<std::uint16_t>(pw / lw);
+        if (scale == 0u || scale != ph / lh) {   // scale must be uniform on both axes
+            return ST7789_ERR_PARAM;
         }
-        return st7789_write_pixels(driver, buffer_, kPixelCount);
+
+        if (scale == 1u) {
+            st7789_status_t st = st7789_set_addr_window(driver, 0u, 0u, lw, lh);
+            if (st != ST7789_OK) {
+                return st;
+            }
+            return st7789_write_pixels(driver, buffer_, kPixelCount);
+        }
+
+        // Scaled: expand one logical row into a physical-width row (each pixel
+        // repeated `scale` times) and push it `scale` times, one row window at a
+        // time. Streaming per row keeps memory to a single small row buffer.
+        if (pw > kMaxRowPixels) {
+            return ST7789_ERR_PARAM;
+        }
+        color_t row[kMaxRowPixels];
+        for (std::uint16_t ly = 0u; ly < lh; ++ly) {
+            std::uint16_t px = 0u;
+            for (std::uint16_t lx = 0u; lx < lw; ++lx) {
+                const color_t c = buffer_[static_cast<std::size_t>(ly) * lw + lx];
+                for (std::uint16_t s = 0u; s < scale; ++s) {
+                    row[px++] = c;
+                }
+            }
+            for (std::uint16_t s = 0u; s < scale; ++s) {
+                const std::uint16_t py = static_cast<std::uint16_t>(ly * scale + s);
+                st7789_status_t st = st7789_set_addr_window(driver, 0u, py, pw, 1u);
+                if (st != ST7789_OK) {
+                    return st;
+                }
+                st = st7789_write_pixels(driver, row, pw);
+                if (st != ST7789_OK) {
+                    return st;
+                }
+            }
+        }
+        return ST7789_OK;
     }
 
 private:
+    // Largest physical row the scaled flush path can stage (covers 240/320 panels).
+    static constexpr std::size_t kMaxRowPixels = 320u;
+
     // Total pixels in the buffer.
     static constexpr std::size_t kPixelCount =
         static_cast<std::size_t>(W) * static_cast<std::size_t>(H);

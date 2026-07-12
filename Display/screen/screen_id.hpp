@@ -7,8 +7,10 @@ namespace ui {
 
 // Closed set of screen slots for the app; values are contiguous from 0.
 enum class screen_id : std::size_t {
-    face = 0,
-    count       // sentinel: number of screens (keep last)
+    shapes = 0,  // changing colors and shapes
+    face,        // procedural animated face
+    bitmap,      // the frog bitmap
+    count        // sentinel: number of screens (keep last)
 };
 
 // Registry capacity the ScreenManager needs to hold every app screen.

@@ -5,6 +5,7 @@
 #include "screen.hpp"
 #include "screen_manager.hpp"
 #include "procedural_face.hpp"
+#include "shapes_screen.hpp"
 
 using namespace ui;
 
@@ -132,6 +133,21 @@ static void test_face_blinks_briefly_then_reopens(void)
     TEST_ASSERT_EQUAL_HEX16(gfx::color::black, fb.pixel_at(12, 18));   // open: filled
 }
 
+static void test_shapes_screen_cycles_background(void)
+{
+    ShapesScreen s;
+    gfx::FramebufferCanvas<16, 16> fb;
+
+    s.render(fb);
+    const gfx::color_t first = fb.pixel_at(0, 0);   // corner is background
+
+    s.update(600u);                                 // advance past one color step
+    s.render(fb);
+    const gfx::color_t second = fb.pixel_at(0, 0);
+
+    TEST_ASSERT_TRUE(first != second);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -143,5 +159,6 @@ int main(void)
     RUN_TEST(test_manager_switches_active);
     RUN_TEST(test_face_renders_eyes_open);
     RUN_TEST(test_face_blinks_briefly_then_reopens);
+    RUN_TEST(test_shapes_screen_cycles_background);
     return UNITY_END();
 }

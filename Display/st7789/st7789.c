@@ -145,6 +145,33 @@ st7789_status_t st7789_set_addr_window(st7789_driver_t *drvr,
     return ST7789_OK;
 }
 
+// MADCTL orientation bits (Sitronix ST7789V datasheet section 9.1.28).
+#define ST7789_MADCTL_MY 0x80u  // Row address order (top-to-bottom flip)
+#define ST7789_MADCTL_MX 0x40u  // Column address order (left-to-right flip)
+#define ST7789_MADCTL_MV 0x20u  // Row/column exchange (transpose the axes)
+
+/* Sets the panel orientation by writing MADCTL. The 240x240 panel is square, so
+   the visible width/height are unchanged; a non-square panel would also swap
+   drvr->width and drvr->height on the 90/270 cases. */
+st7789_status_t st7789_set_rotation(st7789_driver_t *drvr,
+                                    st7789_rotation_t rotation)
+{
+    if (drvr == NULL) {
+        return ST7789_ERR_NULL;
+    }
+
+    uint8_t madctl;
+    switch (rotation) {
+        case ST7789_ROTATION_0:   madctl = 0x00u; break;
+        case ST7789_ROTATION_90:  madctl = (uint8_t)(ST7789_MADCTL_MV | ST7789_MADCTL_MX); break;
+        case ST7789_ROTATION_180: madctl = (uint8_t)(ST7789_MADCTL_MX | ST7789_MADCTL_MY); break;
+        case ST7789_ROTATION_270: madctl = (uint8_t)(ST7789_MADCTL_MV | ST7789_MADCTL_MY); break;
+        default: return ST7789_ERR_PARAM;
+    }
+
+    return st7789_write_command_with_data(drvr, ST7789_CMD_MADCTL, &madctl, 1u);
+}
+
 /* Issues RAMWR, then streams pixels in fixed-size chunks. Each RGB565 value is
    split into bytes by hand (high byte first) so output is correct regardless of
    host endianness -- never memcpy a uint16_t array to the bus. */

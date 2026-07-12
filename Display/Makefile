@@ -46,7 +46,7 @@ $(CANVAS_BIN): $(COMMON_OBJS) $(BUILD_DIR)/test_canvas.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 # Screen suite is pure C++ (plus Unity); no driver/mock needed.
-$(SCREEN_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/procedural_face.o $(BUILD_DIR)/test_screen.o
+$(SCREEN_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/procedural_face.o $(BUILD_DIR)/shapes_screen.o $(BUILD_DIR)/test_screen.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 # Bitmap suite: C storage seam + mock, C++ loader/face/test.
@@ -67,6 +67,8 @@ $(BUILD_DIR)/test_st7789.o: test/test_st7789.c | $(UNITY_SRC)/unity.c $(BUILD_DI
 $(BUILD_DIR)/test_canvas.o: test/test_canvas.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 $(BUILD_DIR)/procedural_face.o: screen/procedural_face.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/shapes_screen.o: screen/shapes_screen.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 $(BUILD_DIR)/test_screen.o: test/test_screen.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@

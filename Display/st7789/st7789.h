@@ -24,6 +24,14 @@ typedef enum st7789_inversion {
     ST7789_INVERSION_ON        // Send INVON; required by Normally-Black panels (e.g. 1.54" IPS)
 } st7789_inversion_t;
 
+// Panel orientation applied through MADCTL; each step is a quarter turn clockwise.
+typedef enum st7789_rotation {
+    ST7789_ROTATION_0 = 0,  // Native orientation
+    ST7789_ROTATION_90,     // Quarter turn clockwise
+    ST7789_ROTATION_180,    // Half turn
+    ST7789_ROTATION_270     // Three-quarter turn clockwise
+} st7789_rotation_t;
+
 // Driver handle: a borrowed bus plus panel geometry; members are read-only after st7789_init().
 typedef struct st7789_driver {
     const spi_bus_t *bus;  // Borrowed transport seam (caller keeps it alive)
@@ -60,6 +68,10 @@ st7789_status_t st7789_write_command_with_data(st7789_driver_t *drvr,
 st7789_status_t st7789_set_addr_window(st7789_driver_t *drvr,
                                        uint16_t x, uint16_t y,
                                        uint16_t w, uint16_t h);
+
+// Sets the panel orientation via MADCTL; returns ST7789_ERR_PARAM on an unknown rotation.
+st7789_status_t st7789_set_rotation(st7789_driver_t *drvr,
+                                    st7789_rotation_t rotation);
 
 // Streams count RGB565 pixels (not bytes) to GRAM after RAMWR, high byte first.
 st7789_status_t st7789_write_pixels(st7789_driver_t *drvr,

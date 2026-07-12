@@ -202,6 +202,37 @@ static void test_addr_window_rejects_zero_size(void)
         st7789_set_addr_window(&g_drv, 0u, 0u, 0u, 10u));
 }
 
+static void test_set_rotation_emits_madctl(void)
+{
+    st7789_init(&g_drv, &g_bus, 240u, 240u, 0u, 0u, ST7789_INVERSION_ON);
+
+    const st7789_rotation_t rots[4] = {
+        ST7789_ROTATION_0, ST7789_ROTATION_90, ST7789_ROTATION_180, ST7789_ROTATION_270
+    };
+    const uint8_t madctl[4] = { 0x00u, 0x60u, 0xC0u, 0xA0u };
+
+    for (int i = 0; i < 4; i++) {
+        mock_spi_init(&g_mock);
+        TEST_ASSERT_EQUAL_INT(ST7789_OK, st7789_set_rotation(&g_drv, rots[i]));
+
+        const uint8_t expected[] = { ST7789_CMD_MADCTL, madctl[i] };
+        uint8_t got[8];
+        size_t n = mock_spi_collect_bytes(&g_mock, got, sizeof(got));
+        TEST_ASSERT_EQUAL_UINT(sizeof(expected), n);
+        TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, got, sizeof(expected));
+        TEST_ASSERT_FALSE(g_mock.overflow);
+    }
+}
+
+static void test_set_rotation_rejects_null_and_unknown(void)
+{
+    st7789_init(&g_drv, &g_bus, 240u, 240u, 0u, 0u, ST7789_INVERSION_ON);
+    TEST_ASSERT_EQUAL_INT(ST7789_ERR_NULL,
+        st7789_set_rotation(NULL, ST7789_ROTATION_0));
+    TEST_ASSERT_EQUAL_INT(ST7789_ERR_PARAM,
+        st7789_set_rotation(&g_drv, (st7789_rotation_t)99));
+}
+
 static void test_write_pixels_emits_ramwr_then_big_endian(void)
 {
     st7789_init(&g_drv, &g_bus, 240u, 240u, 0u, 0u, ST7789_INVERSION_ON);
@@ -290,6 +321,8 @@ int main(void)
     RUN_TEST(test_addr_window_emits_caset_raset);
     RUN_TEST(test_addr_window_applies_offsets);
     RUN_TEST(test_addr_window_rejects_zero_size);
+    RUN_TEST(test_set_rotation_emits_madctl);
+    RUN_TEST(test_set_rotation_rejects_null_and_unknown);
     RUN_TEST(test_addr_window_rejects_out_of_bounds);
     RUN_TEST(test_write_pixels_emits_ramwr_then_big_endian);
     RUN_TEST(test_bus_error_propagates);

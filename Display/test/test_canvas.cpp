@@ -133,17 +133,65 @@ static void test_flush_rejects_null_driver(void)
     TEST_ASSERT_EQUAL_INT(ST7789_ERR_NULL, fb.flush(nullptr));
 }
 
-static void test_flush_rejects_size_mismatch(void)
+static void test_flush_rejects_non_integer_scale(void)
 {
     mock_spi_t mock;
     spi_bus_t bus;
     st7789_driver_t drv;
     mock_spi_init(&mock);
     mock_spi_bind(&bus, &mock);
-    st7789_init(&drv, &bus, 240u, 240u, 0u, 0u, ST7789_INVERSION_ON);
 
     FramebufferCanvas<2, 2> fb;
+
+    // Not an integer multiple on either axis.
+    st7789_init(&drv, &bus, 5u, 5u, 0u, 0u, ST7789_INVERSION_ON);
     TEST_ASSERT_EQUAL_INT(ST7789_ERR_PARAM, fb.flush(&drv));
+
+    // Integer on each axis but different factors (non-uniform scale).
+    st7789_init(&drv, &bus, 6u, 4u, 0u, 0u, ST7789_INVERSION_ON);
+    TEST_ASSERT_EQUAL_INT(ST7789_ERR_PARAM, fb.flush(&drv));
+}
+
+static void test_flush_scales_by_integer_factor(void)
+{
+    mock_spi_t mock;
+    spi_bus_t bus;
+    st7789_driver_t drv;
+    mock_spi_init(&mock);
+    mock_spi_bind(&bus, &mock);
+    st7789_init(&drv, &bus, 4u, 4u, 0u, 0u, ST7789_INVERSION_ON);
+
+    FramebufferCanvas<2, 2> fb;
+    fb.draw_pixel(0, 0, 0x1111u);
+    fb.draw_pixel(1, 0, 0x2222u);
+    fb.draw_pixel(0, 1, 0x3333u);
+    fb.draw_pixel(1, 1, 0x4444u);
+
+    mock_spi_init(&mock);
+    TEST_ASSERT_EQUAL_INT(ST7789_OK, fb.flush(&drv));
+
+    // 2x2 -> 4x4 at 2x: each logical pixel becomes a 2x2 block, streamed one
+    // physical-row window at a time.
+    const std::uint8_t expected[] = {
+        ST7789_CMD_CASET, 0x00u, 0x00u, 0x00u, 0x03u,   // full width, row 0
+        ST7789_CMD_RASET, 0x00u, 0x00u, 0x00u, 0x00u,
+        ST7789_CMD_RAMWR, 0x11u, 0x11u, 0x11u, 0x11u, 0x22u, 0x22u, 0x22u, 0x22u,
+        ST7789_CMD_CASET, 0x00u, 0x00u, 0x00u, 0x03u,   // row 1 repeats logical row 0
+        ST7789_CMD_RASET, 0x00u, 0x01u, 0x00u, 0x01u,
+        ST7789_CMD_RAMWR, 0x11u, 0x11u, 0x11u, 0x11u, 0x22u, 0x22u, 0x22u, 0x22u,
+        ST7789_CMD_CASET, 0x00u, 0x00u, 0x00u, 0x03u,   // row 2, logical row 1
+        ST7789_CMD_RASET, 0x00u, 0x02u, 0x00u, 0x02u,
+        ST7789_CMD_RAMWR, 0x33u, 0x33u, 0x33u, 0x33u, 0x44u, 0x44u, 0x44u, 0x44u,
+        ST7789_CMD_CASET, 0x00u, 0x00u, 0x00u, 0x03u,   // row 3 repeats logical row 1
+        ST7789_CMD_RASET, 0x00u, 0x03u, 0x00u, 0x03u,
+        ST7789_CMD_RAMWR, 0x33u, 0x33u, 0x33u, 0x33u, 0x44u, 0x44u, 0x44u, 0x44u,
+    };
+    std::uint8_t got[128];
+    std::size_t n = mock_spi_collect_bytes(&mock, got, sizeof(got));
+
+    TEST_ASSERT_EQUAL_UINT(sizeof(expected), n);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, got, sizeof(expected));
+    TEST_ASSERT_FALSE(mock.overflow);
 }
 
 static void test_flush_emits_window_and_pixels(void)
@@ -195,7 +243,8 @@ int main(void)
     RUN_TEST(test_draw_rect_outline_only);
     RUN_TEST(test_blit_copies_with_clipping);
     RUN_TEST(test_flush_rejects_null_driver);
-    RUN_TEST(test_flush_rejects_size_mismatch);
+    RUN_TEST(test_flush_rejects_non_integer_scale);
     RUN_TEST(test_flush_emits_window_and_pixels);
+    RUN_TEST(test_flush_scales_by_integer_factor);
     return UNITY_END();
 }
