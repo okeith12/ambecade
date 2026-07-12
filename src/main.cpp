@@ -22,14 +22,12 @@ extern "C" {
 #include "spi_bus.h"
 }
 
-// ---- Wiring (adjust these to match how you soldered the panel) ----
-// XIAO ESP32-S3 hardware SPI: SCK = D8 (GPIO7), MOSI = D10 (GPIO9).
-static constexpr int8_t kPinSck = 7;
-static constexpr int8_t kPinMosi = 9;
-static constexpr uint8_t kPinCs = 2;   // D1
-static constexpr uint8_t kPinDc = 3;   // D2
-static constexpr uint8_t kPinRst = 4;  // D3
-static constexpr uint8_t kPinBacklight = 1;  // D0 (or tie the panel's BLK to 3V3)
+// ---- Wiring: matches the XIAO ESP32-S3 silk labels (BLK tied to 3V3) ----
+static constexpr int8_t kPinSck = D8;    // CK
+static constexpr int8_t kPinMosi = D10;  // SI
+static constexpr uint8_t kPinCs = D7;    // CS
+static constexpr uint8_t kPinDc = D5;    // DC
+static constexpr uint8_t kPinRst = D6;   // RT
 
 static constexpr uint32_t kSpiHz = 40000000u;  // 40 MHz SPI clock
 
@@ -99,15 +97,16 @@ void setup()
     pinMode(kPinCs, OUTPUT);
     pinMode(kPinDc, OUTPUT);
     pinMode(kPinRst, OUTPUT);
-    pinMode(kPinBacklight, OUTPUT);
     digitalWrite(kPinCs, HIGH);
-    digitalWrite(kPinBacklight, HIGH);  // backlight on
 
     SPI.begin(kPinSck, -1, kPinMosi, -1);
-    SPI.beginTransaction(SPISettings(kSpiHz, MSBFIRST, SPI_MODE0));
+    // This panel clocks in SPI mode 3 (matches the proven Adafruit bring-up).
+    SPI.beginTransaction(SPISettings(kSpiHz, MSBFIRST, SPI_MODE3));
 
     // 1.54" IPS panel is Normally-Black, so it needs inversion on.
     st7789_init(&g_drv, &g_bus, 240u, 240u, 0u, 0u, ST7789_INVERSION_ON);
+    // Adafruit's setRotation(2) on this 240x240 panel is MADCTL 0x00 with no
+    // offset, which is our ROTATION_0 -- reproduces the proven GRAM mapping.
     st7789_set_rotation(&g_drv, ST7789_ROTATION_0);
 
     g_screens.set_screen(ui::screen_id::shapes, &g_shapes);
