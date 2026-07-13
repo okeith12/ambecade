@@ -115,17 +115,11 @@ static ui::FireflyCatchScreen g_firefly(g_buttons, 240, 240, 0xBEEF1234u);
 static ui::ClockScreen g_clock;
 static ui::ScreenManager<ui::screen_id> g_screens;
 
-// The order screens cycle in; games hold their screen instead of auto-advancing.
+// The order screens cycle in; each one shows for a minute before the next.
 static const ui::screen_id kOrder[] = {
     ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap,
     ui::screen_id::game, ui::screen_id::firefly, ui::screen_id::clock
 };
-
-// True for screens that should not auto-advance (the two games).
-static bool holds_screen(ui::screen_id id)
-{
-    return id == ui::screen_id::game || id == ui::screen_id::firefly;
-}
 
 // Connects WiFi (if configured) and starts NTP time for the clock.
 static void start_wifi_and_time()
@@ -143,7 +137,7 @@ static void start_wifi_and_time()
         configTzTime(kTimezone, "pool.ntp.org", "time.nist.gov");
     }
 }
-static constexpr uint32_t kScreenHoldMs = 10000u;
+static constexpr uint32_t kScreenHoldMs = 60000u;   // one minute per screen
 
 static uint32_t g_last_ms = 0u;
 static uint32_t g_screen_ms = 0u;
@@ -221,10 +215,8 @@ void loop()
         next_screen();
         return;
     }
-    if (!holds_screen(kOrder[g_screen_index])) {
-        g_screen_ms += dt;
-        if (g_screen_ms >= kScreenHoldMs) {
-            next_screen();
-        }
+    g_screen_ms += dt;
+    if (g_screen_ms >= kScreenHoldMs) {
+        next_screen();
     }
 }

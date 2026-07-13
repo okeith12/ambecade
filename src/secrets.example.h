@@ -1,7 +1,6 @@
 // WiFi credentials template.
 //
-// Copy this file to `secrets.h` (same folder) and fill in your 2.4 GHz network.
-// `secrets.h` is gitignored, so your real credentials never get committed.
+// Copy this file to `secrets.h` (same folder) and fill in your network.
 //
 //   cp src/secrets.example.h src/secrets.h
 //

@@ -16,7 +16,7 @@ unwired pin just reads as "not pressed" — you can add switches one at a time.
 
 Display stays as wired: SCK=D8, SDA/MOSI=D10, CS=D7, DC=D5, RST=D6, BLK=3V3.
 
-(To change any pin, edit the `kPin*` / `kBtn*` constants at the top of `src/main.cpp`.)
+To change any pin, edit the `kPin*` constants at the top of `src/main.cpp`.
 
 ## 2. Build and flash
 
