@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/okeith12/ambecade/actions/workflows/ci.yml/badge.svg)](https://github.com/okeith12/ambecade/actions/workflows/ci.yml)
 
-A custom arcade device: a Seeed **XIAO ESP32-S3** driving a 1.54" **ST7789** 240x240 display.
+A custom arcade device: a Seeed **XIAO ESP32-S3** driving a 1.54" **ST7789** 240x240 display for now, I plan to update it to a bigger screen later
 
 ## Display
 
-`Display/` is a hand-written ST7789 driver and a small graphics-and-screens stack. It is built
-in layers with a hardware seam, so every layer is unit-tested on a laptop before it touches a board.
+`Display/` is a  ST7789 driver and a small graphics-and-screens stack. It is built
+in layers with a hardware seam
 
 ```
 screens  ── face · frog · shapes · Galaga ── input · font · ScreenManager
@@ -38,8 +38,7 @@ switches screens; the games hold their screen so they are not interrupted mid-pl
   with the bitmap font. Pure game logic, unit-tested; **fire** restarts after a win or loss.
 - **Firefly Catch** — slide the jar to catch fireflies falling from random spots; miss and lose a
   life. Seeded RNG, unit-tested; **fire** restarts.
-- **Clock** — a big HH:MM and date, set over WiFi/NTP. Put your network in the gitignored
-  `src/secrets.h`; without it the clock shows a placeholder.
+- **Clock** — a big HH:MM and date, set over WiFi/NTP, without it the clock shows a placeholder.
 
 ### Test 
 
