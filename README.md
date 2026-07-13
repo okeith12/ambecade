@@ -38,8 +38,9 @@ switches screens; the games hold their screen so they are not interrupted mid-pl
   with the bitmap font. Pure game logic, unit-tested; **fire** restarts after a win or loss.
 - **Firefly Catch** — slide the jar to catch fireflies falling from random spots; miss and lose a
   life. Seeded RNG, unit-tested; **fire** restarts.
-- **Clock** — a big HH:MM and date, set over WiFi/NTP. Fill in `kWifiSsid` / `kWifiPass` in
-  `src/main.cpp`; without credentials it shows a placeholder.
+- **Clock** — a big HH:MM and date, set over WiFi/NTP. Add credentials via a gitignored secrets
+  file (`cp src/secrets.example.h src/secrets.h`, then fill it in); without it the clock shows a
+  placeholder.
 
 ### Test 
 

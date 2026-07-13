@@ -7,5 +7,8 @@
 # Local AI context — never commit
 HANDOFF.md
 
+# Secrets — WiFi credentials live here, never in git
+src/secrets.h
+
 # macOS
 .DS_Store

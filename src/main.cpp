@@ -27,9 +27,20 @@ extern "C" {
 #include "spi_bus.h"
 }
 
-// ---- WiFi + time (for the clock). Fill in your 2.4GHz network to enable it. ----
-static const char* kWifiSsid = "";   // your WiFi name (leave empty to skip WiFi)
-static const char* kWifiPass = "";   // your WiFi password
+// ---- WiFi + time (for the clock) ----
+// Credentials come from src/secrets.h (gitignored). Copy src/secrets.example.h to
+// src/secrets.h and fill it in. Without it, WiFi is skipped and the clock shows a placeholder.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#endif
+#ifndef WIFI_PASS
+#define WIFI_PASS ""
+#endif
+static const char* kWifiSsid = WIFI_SSID;
+static const char* kWifiPass = WIFI_PASS;
 // America/Chicago with automatic daylight saving.
 static const char* kTimezone = "CST6CDT,M3.2.0,M11.1.0";
 
