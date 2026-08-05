@@ -13,6 +13,8 @@ enum class screen_id : std::size_t {
     game,        // Galaga
     firefly,     // Firefly Catch
     clock,       // WiFi/NTP day clock
+    anniversary, // bopping seahorse + days-until countdown
+    tiara,       // the tiara bitmap
     count        // sentinel: number of screens (keep last)
 };
 

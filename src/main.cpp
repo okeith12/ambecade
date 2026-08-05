@@ -21,6 +21,9 @@
 #include "galaga_screen.hpp"
 #include "firefly_catch_screen.hpp"
 #include "clock_screen.hpp"
+#include "anniversary_screen.hpp"
+#include "seahorse.hpp"
+#include "tiara.hpp"
 
 extern "C" {
 #include "st7789.h"
@@ -113,12 +116,20 @@ static ui::BitmapFace g_frog(gfx::frog_face);
 static ui::GalagaScreen g_game(g_buttons, 240, 240);
 static ui::FireflyCatchScreen g_firefly(g_buttons, 240, 240, 0xBEEF1234u);
 static ui::ClockScreen g_clock;
+
+// Anniversary countdown: set your real date here (month 1-12, day 1-31).
+static constexpr int kAnnMonth = 8;   // TODO: replace with your anniversary month
+static constexpr int kAnnDay = 16;    // TODO: replace with your anniversary day
+static ui::AnniversaryScreen g_anniversary(gfx::seahorse, kAnnMonth, kAnnDay,
+                                           gfx::seahorse_key, "TILL WE CELEBRATE OUR FAMILY");
+static ui::BitmapFace g_tiara(gfx::tiara, gfx::rgb565(20, 14, 28));
 static ui::ScreenManager<ui::screen_id> g_screens;
 
 // The order screens cycle in; each one shows for a minute before the next.
 static const ui::screen_id kOrder[] = {
     ui::screen_id::shapes, ui::screen_id::face, ui::screen_id::bitmap,
-    ui::screen_id::game, ui::screen_id::firefly, ui::screen_id::clock
+    ui::screen_id::game, ui::screen_id::firefly, ui::screen_id::clock,
+    ui::screen_id::anniversary, ui::screen_id::tiara
 };
 
 // Connects WiFi (if configured) and starts NTP time for the clock.
@@ -192,6 +203,8 @@ void setup()
     g_screens.set_screen(ui::screen_id::game, &g_game);
     g_screens.set_screen(ui::screen_id::firefly, &g_firefly);
     g_screens.set_screen(ui::screen_id::clock, &g_clock);
+    g_screens.set_screen(ui::screen_id::anniversary, &g_anniversary);
+    g_screens.set_screen(ui::screen_id::tiara, &g_tiara);
     g_screens.set_active(kOrder[g_screen_index]);
 
     g_last_ms = millis();

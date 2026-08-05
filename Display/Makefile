@@ -50,10 +50,10 @@ $(SCREEN_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/procedural_face.o $(BUILD_DIR)/
                $(BUILD_DIR)/galaga.o $(BUILD_DIR)/firefly_catch.o $(BUILD_DIR)/test_screen.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-# Bitmap suite: C storage seam + mock, C++ loader/face/font/test.
+# Bitmap suite: C storage seam + mock, C++ loader/face/font/anniversary/test.
 $(BITMAP_BIN): $(BUILD_DIR)/unity.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/mock_storage.o \
                $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/bitmap_face.o $(BUILD_DIR)/font.o \
-               $(BUILD_DIR)/test_bitmap.o
+               $(BUILD_DIR)/anniversary_screen.o $(BUILD_DIR)/test_bitmap.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD_DIR)/st7789.o: st7789/st7789.c | $(UNITY_SRC)/unity.c $(BUILD_DIR)
@@ -87,6 +87,8 @@ $(BUILD_DIR)/bitmap.o: gfx/bitmap.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 $(BUILD_DIR)/font.o: gfx/font.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 $(BUILD_DIR)/bitmap_face.o: screen/bitmap_face.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/anniversary_screen.o: screen/anniversary_screen.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 $(BUILD_DIR)/test_bitmap.o: test/test_bitmap.cpp | $(UNITY_SRC)/unity.c $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
