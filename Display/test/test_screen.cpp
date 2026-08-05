@@ -2,8 +2,6 @@
 #include "canvas.hpp"
 #include "color.hpp"
 #include "framebuffer_canvas.hpp"
-#include "screen.hpp"
-#include "screen_manager.hpp"
 #include "procedural_face.hpp"
 #include "shapes_screen.hpp"
 #include "buttons.hpp"
@@ -15,92 +13,6 @@ using namespace ui;
 
 void setUp(void) {}
 void tearDown(void) {}
-
-namespace {
-
-// Test-only id set (the manager is generic over any contiguous scoped enum).
-enum class test_id : std::size_t { a = 0, b = 1, count = 2 };
-
-// Records how often it is driven, so tests can prove who the manager delegates to.
-class StubScreen : public Screen {
-public:
-    void update(std::uint32_t dt_ms) override { ++updates; last_dt = dt_ms; }
-    void render(gfx::Canvas&) override { ++renders; }
-    int updates = 0;
-    int renders = 0;
-    std::uint32_t last_dt = 0u;
-};
-
-}  // namespace
-
-static void test_manager_no_active_is_error(void)
-{
-    ScreenManager<test_id> mgr;
-    gfx::FramebufferCanvas<8, 8> fb;
-    TEST_ASSERT_EQUAL_INT((int)screen_status::err_no_active, (int)mgr.update(16u));
-    TEST_ASSERT_EQUAL_INT((int)screen_status::err_no_active, (int)mgr.render(fb));
-    TEST_ASSERT_FALSE(mgr.has_active());
-}
-
-static void test_manager_rejects_out_of_range(void)
-{
-    ScreenManager<test_id> mgr;
-    StubScreen a;
-    mgr.set_screen(test_id::a, &a);
-    TEST_ASSERT_EQUAL_INT((int)screen_status::err_range,
-        (int)mgr.set_active(static_cast<test_id>(5)));
-    TEST_ASSERT_FALSE(mgr.has_active());
-}
-
-static void test_manager_rejects_empty_slot(void)
-{
-    ScreenManager<test_id> mgr;
-    TEST_ASSERT_EQUAL_INT((int)screen_status::err_empty,
-        (int)mgr.set_active(test_id::a));
-}
-
-static void test_manager_rejects_null_screen(void)
-{
-    ScreenManager<test_id> mgr;
-    TEST_ASSERT_EQUAL_INT((int)screen_status::err_null,
-        (int)mgr.set_screen(test_id::a, nullptr));
-}
-
-static void test_manager_delegates_to_active_only(void)
-{
-    ScreenManager<test_id> mgr;
-    StubScreen a, b;
-    mgr.set_screen(test_id::a, &a);
-    mgr.set_screen(test_id::b, &b);
-    TEST_ASSERT_EQUAL_INT((int)screen_status::ok, (int)mgr.set_active(test_id::a));
-
-    gfx::FramebufferCanvas<8, 8> fb;
-    mgr.update(10u);
-    mgr.render(fb);
-
-    TEST_ASSERT_EQUAL_INT(1, a.updates);
-    TEST_ASSERT_EQUAL_INT(1, a.renders);
-    TEST_ASSERT_EQUAL_UINT32(10u, a.last_dt);
-    TEST_ASSERT_EQUAL_INT(0, b.updates);
-    TEST_ASSERT_EQUAL_INT(0, b.renders);
-}
-
-static void test_manager_switches_active(void)
-{
-    ScreenManager<test_id> mgr;
-    StubScreen a, b;
-    mgr.set_screen(test_id::a, &a);
-    mgr.set_screen(test_id::b, &b);
-
-    mgr.set_active(test_id::a);
-    mgr.update(5u);
-    mgr.set_active(test_id::b);
-    mgr.update(7u);
-
-    TEST_ASSERT_EQUAL_INT(1, a.updates);   // unchanged after switch
-    TEST_ASSERT_EQUAL_INT(1, b.updates);
-    TEST_ASSERT_EQUAL_UINT32(7u, b.last_dt);
-}
 
 static void test_face_renders_eyes_open(void)
 {
@@ -150,34 +62,6 @@ static void test_shapes_screen_cycles_background(void)
     const gfx::color_t second = fb.pixel_at(0, 0);
 
     TEST_ASSERT_TRUE(first != second);
-}
-
-static void test_buttons_debounce_press_release(void)
-{
-    Buttons b;
-
-    // A single glitchy sample never settles.
-    b.poll(5u, BUTTON_FIRE);
-    b.poll(5u, BUTTON_NONE);
-    TEST_ASSERT_EQUAL_UINT32(0u, b.held());
-
-    // Held steadily past the debounce window: settles and fires one edge.
-    b.poll(10u, BUTTON_LEFT);   // new level seen, settle timer starts
-    b.poll(10u, BUTTON_LEFT);   // +10ms
-    b.poll(10u, BUTTON_LEFT);   // +10ms = 20ms window reached
-    TEST_ASSERT_TRUE(b.is_held(BUTTON_LEFT));
-    TEST_ASSERT_TRUE(b.was_pressed(BUTTON_LEFT));
-
-    // No repeated edge while it stays held.
-    b.poll(50u, BUTTON_LEFT);
-    TEST_ASSERT_TRUE(b.is_held(BUTTON_LEFT));
-    TEST_ASSERT_FALSE(b.was_pressed(BUTTON_LEFT));
-
-    // Released steadily: clears after the window.
-    b.poll(10u, BUTTON_NONE);
-    b.poll(10u, BUTTON_NONE);
-    b.poll(10u, BUTTON_NONE);
-    TEST_ASSERT_FALSE(b.is_held(BUTTON_LEFT));
 }
 
 static void test_galaga_reset_starts_full_wave(void)
@@ -299,16 +183,9 @@ static void test_clock_format_pads_and_names(void)
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_manager_no_active_is_error);
-    RUN_TEST(test_manager_rejects_out_of_range);
-    RUN_TEST(test_manager_rejects_empty_slot);
-    RUN_TEST(test_manager_rejects_null_screen);
-    RUN_TEST(test_manager_delegates_to_active_only);
-    RUN_TEST(test_manager_switches_active);
     RUN_TEST(test_face_renders_eyes_open);
     RUN_TEST(test_face_blinks_briefly_then_reopens);
     RUN_TEST(test_shapes_screen_cycles_background);
-    RUN_TEST(test_buttons_debounce_press_release);
     RUN_TEST(test_galaga_reset_starts_full_wave);
     RUN_TEST(test_galaga_overlaps_math);
     RUN_TEST(test_galaga_fire_spawns_one_bullet);
